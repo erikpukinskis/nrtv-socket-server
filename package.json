@@ -7,5 +7,12 @@
     "sockjs": "*",
     "nrtv-server": "*"
   },
+  "scripts": {
+    "test": "node test.js"
+  },
+  "devDependencies": {
+    "ws": "*",
+    "nrtv-test": "*"
+  },
   "license": "ISC"
 }

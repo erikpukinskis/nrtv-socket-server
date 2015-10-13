@@ -2,7 +2,7 @@ var library = require("nrtv-library")(require)
 
 module.exports = library.export(
   "nrtv-socket-server",
-  [library.collective({}), "sockjs", "nrtv-server", "http"],
+  [library.collective({}), "sockjs", "nrtv-server", "http", "querystring"],
   function(collective, sockjs, nrtvServer, http) {
 
     function SocketServer() {
@@ -16,6 +16,17 @@ module.exports = library.export(
 
       this.socket.installHandlers(httpServer, {prefix: "/echo"})
 
+      this.adopters = []
+
+      this.adoptConnections(
+        function(connection) {
+          return true
+        },
+        function(message) {
+          console.log("unadopted:", message)
+        }
+      )
+
       nrtvServer.relenquishControl(
         function start(port) {
           httpServer.listen(port)
@@ -25,54 +36,64 @@ module.exports = library.export(
 
       var socketServer = this
 
-      this.socket.on("connection", function(conn) {
+      this.socket.on("connection", this.handleNewConnection.bind(this))
+    }
 
-        socketServer.conn = conn
+    function ConnectionAdopter(doesWantIt, handler) {
+      this.wants = doesWantIt
+      this.handler = handler
+      this.connections = {}
+    }
 
-        conn.on("data", handleData)
+    ConnectionAdopter.prototype.addConnection =
+      function(conn) {
+        var connections = this.connections
 
-        function handleData(message) {
+        connections[conn.id] = conn
 
-          message = JSON.parse(message)
-          var i = 0
-          handleOneMore(message)
+        conn.on("close", function() {
+          delete connections[conn.id]
+        })
 
-          function handleOneMore(message) {
-            var middleware = middlewares[i++]
-            if (middleware) {
-              middleware(message, handleOneMore)
-            }
+        var handler = this.handler
+
+        conn.on("data", function(message) {
+
+          handler(message)
+        })
+      }
+
+    SocketServer.prototype.adoptConnections =
+      function(doesWantIt, handler) {
+        var adopter = new ConnectionAdopter(doesWantIt, handler)
+
+        this.adopters.push(adopter)
+
+        return adopter
+      }
+
+    SocketServer.prototype.handleNewConnection =
+      function(conn) {
+
+        var adopters = this.adopters
+        var orphanConnections = this.orphanConnections
+
+        tryAdopter(adopters.length - 1)
+
+        function tryAdopter(i) {
+          var adopter = adopters[i]
+
+          if (!adopter) {
+            return
+          } else if (adopter.wants(conn)) {
+
+            adopter.addConnection(conn)
+
+          } else {
+            tryAdopter(i - 1)
           }
         }
-
-      })
-    }
-
-  SocketServer.prototype.publish =
-    function(object) {
-      if (!this.conn) {
-        throw new Error("Tried to publish to socket but it isn't connected yet.")
       }
-
-      this.conn.write(JSON.stringify(object))
-    }
-
-    SocketServer.prototype.use =
-      function(middleware) {
-        if (typeof middleware != "function") {
-          throw new Error("Tried to provide a middleware with socketServer.use, but "+JSON.stringify(middleware)+" is not a function.")
-        }
-        this.middlewares.push(middleware)
-      }
-
-    library.collectivize(
-      SocketServer,
-      collective,
-      function() {
-        return new SocketServer()
-      },
-      ["use", "publish"]
-    )
 
     return SocketServer
   }  
