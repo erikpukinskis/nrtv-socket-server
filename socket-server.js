@@ -59,6 +59,11 @@ module.exports = library.export(
         }
       }
 
+    library.collectivize(
+      SocketServer,
+      collective,
+      ["adoptConnections"]
+    )
     return SocketServer
   }  
 )
