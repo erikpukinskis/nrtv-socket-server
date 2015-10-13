@@ -9,7 +9,7 @@ test.using(
 
     nrtvServer.start(8000)
 
-    handler = server.adoptConnections(
+    server.adoptConnections(
       function(connection, next) {
         var params = querystring.parse(connection.url.split("?")[1])
 
@@ -23,38 +23,24 @@ test.using(
       }
     )
 
+    function sendMessage(message) {
+      var ws = new WebSocket('ws://localhost:8000/echo/websocket?__nrtvSingleUseSocketIdentifier=102dk102ke2')
+       
+      ws.on("open", function() {
+        ws.send(message)
+      })
+    }
+
+    sendMessage("barf")
+
     function expectSingle(data) {
       expect(data).to.equal("barf")
       done()
       nrtvServer.stop()
     }
 
-    var ws = new WebSocket('ws://localhost:8000/echo/websocket?__nrtvSingleUseSocketIdentifier=102dk102ke2')
-     
-    ws.on("open", function() {
-      ws.send("barf")
-    })
-
-    // var ws = new WebSocket('ws://localhost:8000/echo/websocket')
-     
-    // ws.on("open", function() {
-    //   ws.send("barfcheeso")
-    // })
-
-
-
     // handler.send({})
-
     // server.send()
-    // server.listen(
-    //   function(message, next) {
-    //     if (message.__blah) {
-
-    //     } else {
-    //       next()
-    //     }
-    //   }
-    // )
 
 
 
