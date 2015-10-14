@@ -2,8 +2,8 @@ var library = require("nrtv-library")(require)
 
 module.exports = library.export(
   "nrtv-socket-server",
-  [library.collective({}), "sockjs", "nrtv-server", "http", "querystring"],
-  function(collective, sockjs, nrtvServer, http) {
+  [library.collective({}), "sockjs", "nrtv-server", "http", "nrtv-browser-bridge"],
+  function(collective, sockjs, nrtvServer, http, bridge) {
 
     function SocketServer() {
       this.socket = sockjs.createServer()
@@ -59,10 +59,45 @@ module.exports = library.export(
         }
       }
 
+    SocketServer.prototype.defineInBrowser = function() {
+        return bridge.defineFunction(
+          [bridge.collective({
+            callbacks: []
+          })],
+          getSocketInBrowser
+        )
+      }
+
+    function getSocketInBrowser(collective, callback) {
+
+      if (collective.open) {
+        return callback(collective.socket)
+      }
+
+      collective.callbacks.push(callback)
+
+      if (collective.socket) {
+        return
+      }
+
+      var socket = collective.socket = new WebSocket("ws://"+window.location.host+"/echo/websocket")
+
+      socket.onopen = function () {
+        collective.open = true
+        collective.callbacks.forEach(
+          function(callback) {
+            callback(socket)
+          }
+        )
+      }
+
+    }
+
+
     library.collectivize(
       SocketServer,
       collective,
-      ["adoptConnections"]
+      ["adoptConnections", "defineInBrowser"]
     )
     return SocketServer
   }  
