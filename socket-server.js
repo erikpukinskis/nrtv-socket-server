@@ -20,7 +20,7 @@ module.exports = library.export(
 
       this.adoptConnections(
         function(connection) {
-          console.log("unadopted:", message)
+          console.log("unadopted conn!")
         }
       )
 
@@ -61,14 +61,19 @@ module.exports = library.export(
 
     SocketServer.prototype.defineInBrowser = function() {
         return bridge.defineFunction(
-          [bridge.collective({
-            callbacks: []
-          })],
+          [bridge.collective({})],
           getSocketInBrowser
         )
       }
 
-    function getSocketInBrowser(collective, callback) {
+    function getSocketInBrowser(collective, callback, queryString) {
+
+      var url = "ws://"+window.location.host+"/echo/websocket"+(queryString || "")
+
+      if (!collective[url]) {
+        collective[url] = {callbacks: []}
+      }
+      collective = collective[url]
 
       if (collective.open) {
         return callback(collective.socket)
@@ -80,7 +85,7 @@ module.exports = library.export(
         return
       }
 
-      var socket = collective.socket = new WebSocket("ws://"+window.location.host+"/echo/websocket")
+      var socket = collective.socket = new WebSocket(url)
 
       socket.onopen = function () {
         collective.open = true
