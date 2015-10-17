@@ -1,28 +1,31 @@
 var library = require("nrtv-library")(require)
 
+var toot
+
 module.exports = library.export(
   "nrtv-socket-server",
-  [library.collective({}), "sockjs", "nrtv-server", "http", "nrtv-browser-bridge"],
-  function(collective, sockjs, nrtvServer, http, bridge) {
+  ["sockjs", "nrtv-server", "http", "nrtv-browser-bridge"],
+  function(sockjs, nrtvServer, http, bridge) {
 
-    function SocketServer() {
-      this.socket = sockjs.createServer()
+    var socket
+    var adopters = []
 
-      var middlewares = this.middlewares = []
+    function takeOverServer() {
+      if (nrtvServer.__isInfectedWithNrtvSockets) {
+        return
+      }
+
+      socket = sockjs.createServer()
 
       var app = nrtvServer.express()
 
       var httpServer = http.createServer(app);
 
-      this.socket.installHandlers(httpServer, {prefix: "/echo"})
+      socket.installHandlers(httpServer, {prefix: "/echo"})
 
-      this.adopters = []
-
-      this.adoptConnections(
-        function(connection) {
-          console.log("unadopted conn!")
-        }
-      )
+      adopters.push(function(conn) {
+        console.log("unadopted conn!")
+      })
 
       nrtvServer.relenquishControl(
         function start(port) {
@@ -31,79 +34,34 @@ module.exports = library.export(
           return httpServer
         })
 
-      var socketServer = this
+      socket.on("connection", handleNewConnection)
 
-      this.socket.on("connection", this.handleNewConnection.bind(this))
+      nrtvServer.__isInfectedWithNrtvSockets = true
     }
 
-    SocketServer.prototype.adoptConnections =
-      function(handler) {
-        this.adopters.push(handler)
-      }
+    function adoptConnections(handler) {
+      takeOverServer()
+      adopters.push(handler)
+    }
 
-    SocketServer.prototype.handleNewConnection =
-      function(conn) {
+    function handleNewConnection(connection) {
+      var i = adopters.length - 1
 
-        var adopters = this.adopters
+      tryAnother()
 
-        var i = adopters.length - 1
+      function tryAnother() {
+        var adopter = adopters[i--]
 
-        tryAnother()
-
-        function tryAnother() {
-          var adopter = adopters[i--]
-
-          if (adopter) {
-            adopter(conn, tryAnother)
-          }
+        if (adopter) {
+          adopter(connection, tryAnother)
         }
       }
-
-    SocketServer.prototype.defineInBrowser = function() {
-        return bridge.defineFunction(
-          [bridge.collective({})],
-          getSocketInBrowser
-        )
-      }
-
-    function getSocketInBrowser(collective, callback, queryString) {
-
-      var url = "ws://"+window.location.host+"/echo/websocket"+(queryString || "")
-
-      if (!collective[url]) {
-        collective[url] = {callbacks: []}
-      }
-      collective = collective[url]
-
-      if (collective.open) {
-        return callback(collective.socket)
-      }
-
-      collective.callbacks.push(callback)
-
-      if (collective.socket) {
-        return
-      }
-
-      var socket = collective.socket = new WebSocket(url)
-
-      socket.onopen = function () {
-        collective.open = true
-        collective.callbacks.forEach(
-          function(callback) {
-            callback(socket)
-          }
-        )
-      }
-
     }
 
-
-    library.collectivize(
-      SocketServer,
-      collective,
-      ["adoptConnections", "defineInBrowser"]
-    )
-    return SocketServer
+    return {
+      handleNewConnection: handleNewConnection,
+      adoptConnections: adoptConnections,
+      takeOverServer: takeOverServer
+    }
   }  
 )

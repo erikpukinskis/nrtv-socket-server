@@ -9,14 +9,14 @@ test.using(
   function(expect, done, socketServer, bridge, server, browse) {
 
     var listen = bridge.defineFunction(
-      [socketServer.defineInBrowser()],
-      function(getServer) {
+      function() {
 
-        getServer(function(server) {
-          server.onmessage = function(message) {
-            server.send("got "+message.data)
+        var socket = new WebSocket("ws://"+window.location.host+"/echo/websocket")
+
+        socket.onmessage =
+          function(message) {
+            socket.send("got "+message.data)
           }
-        })
 
       }
     )
@@ -48,11 +48,9 @@ setTimeout(function() {
 test.using(
   "receives data through a websocket",
   ["./socket-server", "ws", library.reset("nrtv-server"), "querystring"],
-  function(expect, done, SocketServer, WebSocket, nrtvServer, querystring) {
+  function(expect, done, socketServer, WebSocket, nrtvServer, querystring) {
 
-    var server = new SocketServer()
-
-    server.adoptConnections(
+    socketServer.adoptConnections(
       function(connection, next) {
         var params = querystring.parse(connection.url.split("?")[1])
 
