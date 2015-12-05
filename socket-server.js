@@ -10,14 +10,15 @@ module.exports = library.export(
     var socket
     var adopters = []
 
-    function takeOverServer() {
-      if (nrtvServer.__isInfectedWithNrtvSockets) {
+    function takeOverServer(server) {
+      server = server || nrtvServer
+      if (server.__isInfectedWithNrtvSockets) {
         return
       }
 
       socket = sockjs.createServer()
 
-      var app = nrtvServer.express()
+      var app = server.express()
 
       var httpServer = http.createServer(app);
 
@@ -27,7 +28,7 @@ module.exports = library.export(
         console.log("unadopted conn!")
       })
 
-      nrtvServer.relenquishControl(
+      server.relenquishControl(
         function start(port) {
           httpServer.listen(port)
           console.log("listening on "+port+" (for websockets too)")
@@ -36,11 +37,11 @@ module.exports = library.export(
 
       socket.on("connection", handleNewConnection)
 
-      nrtvServer.__isInfectedWithNrtvSockets = true
+      server.__isInfectedWithNrtvSockets = true
     }
 
-    function adoptConnections(handler) {
-      takeOverServer()
+    function adoptConnections(handler, server) {
+      takeOverServer(server)
       adopters.push(handler)
     }
 
