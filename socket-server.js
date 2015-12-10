@@ -4,8 +4,8 @@ var toot
 
 module.exports = library.export(
   "nrtv-socket-server",
-  [library.collective({}), "sockjs", "nrtv-server", "http", "nrtv-browser-bridge"],
-  function(collective, sockjs, nrtvServer, http, bridge) {
+  [library.collective({}), "sockjs", "nrtv-server", "http"],
+  function(collective, sockjs, nrtvServer, http) {
 
     function SocketServer(server) {
       this.adopters = []

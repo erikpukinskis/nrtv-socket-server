@@ -5,11 +5,10 @@
   "dependencies": {
     "nrtv-library": "*",
     "sockjs": "*",
-    "nrtv-server": "*",
-    "nrtv-browser-bridge": "0.34.0"
+    "nrtv-server": "*"
   },
   "scripts": {
-    "test": "node --harmony test.js"
+    "test": "node test.js"
   },
   "devDependencies": {
     "ws": "*",
