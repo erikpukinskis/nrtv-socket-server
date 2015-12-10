@@ -4,8 +4,8 @@ var toot
 
 module.exports = library.export(
   "nrtv-socket-server",
-  ["sockjs", "nrtv-server", "http", "nrtv-browser-bridge"],
-  function(sockjs, nrtvServer, http, bridge) {
+  [library.collective({}), "sockjs", "nrtv-server", "http", "nrtv-browser-bridge"],
+  function(collective, sockjs, nrtvServer, http, bridge) {
 
     function SocketServer(server) {
       this.adopters = []
@@ -15,6 +15,7 @@ module.exports = library.export(
 
     SocketServer.prototype.use =
       function(handler) {
+        this._takeOver()
         this.adopters.push(handler)
       }
 
@@ -23,6 +24,8 @@ module.exports = library.export(
         if (this.nrtvServer.__isInfectedWithNrtvSockets) {
           return
         }
+
+        this.nrtvServer.__isInfectedWithNrtvSockets = true
 
         socket = sockjs.createServer()
 
@@ -44,8 +47,6 @@ module.exports = library.export(
           })
 
         socket.on("connection", this._handleNewConnection.bind(this))
-
-        this.nrtvServer.__isInfectedWithNrtvSockets = true
       }
 
     SocketServer.prototype._handleNewConnection =
@@ -64,6 +65,15 @@ module.exports = library.export(
           }
         }
       }
+
+    library.collectivize(
+      SocketServer,
+      collective,
+      function() {
+        return new SocketServer(nrtvServer)
+      },
+      ["use"]
+    )
 
     return SocketServer
   }  
