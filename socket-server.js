@@ -7,62 +7,64 @@ module.exports = library.export(
   ["sockjs", "nrtv-server", "http", "nrtv-browser-bridge"],
   function(sockjs, nrtvServer, http, bridge) {
 
-    var socket
-    var adopters = []
+    function SocketServer(server) {
+      this.adopters = []
+      this.nrtvServer = server
+      this._takeOver()
+    }
 
-    function takeOverServer(server) {
-      server = server || nrtvServer
-      if (server.__isInfectedWithNrtvSockets) {
-        return
+    SocketServer.prototype.use =
+      function(handler) {
+        this.adopters.push(handler)
       }
 
-      socket = sockjs.createServer()
+    SocketServer.prototype._takeOver =
+      function() {
+        if (this.nrtvServer.__isInfectedWithNrtvSockets) {
+          return
+        }
 
-      var app = server.express()
+        socket = sockjs.createServer()
 
-      var httpServer = http.createServer(app);
+        var app = this.nrtvServer.express()
 
-      socket.installHandlers(httpServer, {prefix: "/echo"})
+        var httpServer = http.createServer(app);
 
-      adopters.push(function(conn) {
-        console.log("unadopted conn!")
-      })
+        socket.installHandlers(httpServer, {prefix: "/echo"})
 
-      server.relenquishControl(
-        function start(port) {
-          httpServer.listen(port)
-          console.log("listening on "+port+" (for websockets too)")
-          return httpServer
+        this.adopters.push(function(conn) {
+          throw new Error("unadopted conn!")
         })
 
-      socket.on("connection", handleNewConnection)
+        this.nrtvServer.relenquishControl(
+          function start(port) {
+            httpServer.listen(port)
+            console.log("listening on "+port+" (for websockets too)")
+            return httpServer
+          })
 
-      server.__isInfectedWithNrtvSockets = true
-    }
+        socket.on("connection", this._handleNewConnection.bind(this))
 
-    function adoptConnections(handler, server) {
-      takeOverServer(server)
-      adopters.push(handler)
-    }
+        this.nrtvServer.__isInfectedWithNrtvSockets = true
+      }
 
-    function handleNewConnection(connection) {
-      var i = adopters.length - 1
+    SocketServer.prototype._handleNewConnection =
+      function(connection) {
+        var adopters = this.adopters
 
-      tryAnother()
+        var i = adopters.length - 1
 
-      function tryAnother() {
-        var adopter = adopters[i--]
+        tryAnother()
 
-        if (adopter) {
-          adopter(connection, tryAnother)
+        function tryAnother() {
+          var adopter = adopters[i--]
+
+          if (adopter) {
+            adopter(connection, tryAnother)
+          }
         }
       }
-    }
 
-    return {
-      handleNewConnection: handleNewConnection,
-      adoptConnections: adoptConnections,
-      takeOverServer: takeOverServer
-    }
+    return SocketServer
   }  
 )

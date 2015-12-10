@@ -4,9 +4,11 @@ var library = test.library
 test.using(
   "receives data through a websocket",
   ["./socket-server", "ws", library.reset("nrtv-server"), "querystring"],
-  function(expect, done, socketServer, WebSocket, nrtvServer, querystring) {
+  function(expect, done, SocketServer, WebSocket, nrtvServer, querystring) {
 
-    socketServer.adoptConnections(
+    var socketServer = new SocketServer(nrtvServer)
+
+    socketServer.use(
       function(connection, next) {
         var params = querystring.parse(connection.url.split("?")[1])
 
