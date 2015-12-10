@@ -1,6 +1,6 @@
 {
   "name": "nrtv-socket-server",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "main": "socket-server.js",
   "dependencies": {
     "nrtv-library": "*",
