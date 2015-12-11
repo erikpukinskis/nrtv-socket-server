@@ -6,7 +6,7 @@ test.using(
   ["./socket-server", "ws", library.reset("nrtv-server"), "querystring"],
   function(expect, done, SocketServer, WebSocket, nrtvServer, querystring) {
 
-    var socketServer = new SocketServer(nrtvServer)
+    var socketServer = SocketServer.onServer(nrtvServer)
 
     socketServer.use(
       function(connection, next) {

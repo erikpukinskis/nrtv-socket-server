@@ -8,45 +8,60 @@ module.exports = library.export(
   function(collective, sockjs, nrtvServer, http) {
 
     function SocketServer(server) {
+      if (!server) {
+        server = nrtvServer
+      }
+
+      var socketServer = server.__nrtvSocketServer
+
+      if (socketServer) {
+        throw new Error("The server already has a socket server associated with it. Do you want to do SocketServer.onServer(yourServer) instead? You can call that as many times as you want.")
+      }
+
       this.adopters = []
-      this.nrtvServer = server
-      this._takeOver()
+      this._takeOver(server)
     }
+
+    SocketServer.onServer =
+      function(server) {
+        var socketServer = server.__nrtvSocketServer
+
+        if (!socketServer) {
+          socketServer = server.__nrtvSocketServer = new SocketServer(server)
+        }
+
+        return socketServer
+      }
 
     SocketServer.prototype.use =
       function(handler) {
-        this._takeOver()
         this.adopters.push(handler)
       }
 
     SocketServer.prototype._takeOver =
-      function() {
-        if (this.nrtvServer.__isInfectedWithNrtvSockets) {
-          return
-        }
+      function(server) {
+        server.__nrtvSocketServer = this
 
-        this.nrtvServer.__isInfectedWithNrtvSockets = true
+        sockjsServer = sockjs.createServer()
 
-        socket = sockjs.createServer()
-
-        var app = this.nrtvServer.express()
+        var app = server.express()
 
         var httpServer = http.createServer(app);
 
-        socket.installHandlers(httpServer, {prefix: "/echo"})
+        sockjsServer.installHandlers(httpServer, {prefix: "/echo"})
 
         this.adopters.push(function(conn) {
           throw new Error("unadopted conn!")
         })
 
-        this.nrtvServer.relenquishControl(
+        server.relenquishControl(
           function start(port) {
             httpServer.listen(port)
             console.log("listening on "+port+" (for websockets too)")
             return httpServer
           })
 
-        socket.on("connection", this._handleNewConnection.bind(this))
+        sockjsServer.on("connection", this._handleNewConnection.bind(this))
       }
 
     SocketServer.prototype._handleNewConnection =
@@ -70,7 +85,7 @@ module.exports = library.export(
       SocketServer,
       collective,
       function() {
-        return new SocketServer(nrtvServer)
+        return SocketServer.onServer(nrtvServer)
       },
       ["use"]
     )
