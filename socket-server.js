@@ -4,8 +4,8 @@ var toot
 
 module.exports = library.export(
   "nrtv-socket-server",
-  [library.collective({}), "sockjs", "nrtv-server", "http"],
-  function(collective, sockjs, nrtvServer, http) {
+  [library.collective({}), "ws", "nrtv-server", "http"],
+  function(collective, ws, nrtvServer, http) {
 
     function SocketServer(server) {
       if (!server) {
@@ -42,13 +42,11 @@ module.exports = library.export(
       function(server) {
         server.__nrtvSocketServer = this
 
-        sockjsServer = sockjs.createServer()
-
         var app = server.express()
 
         var httpServer = http.createServer(app);
 
-        sockjsServer.installHandlers(httpServer, {prefix: "/echo"})
+        var wsServer = new ws.Server({server: httpServer})
 
         this.adopters.push(function(conn) {
           throw new Error("unadopted conn!")
@@ -57,11 +55,10 @@ module.exports = library.export(
         server.relenquishControl(
           function start(port) {
             httpServer.listen(port)
-            console.log("listening on "+port+" (for websockets too)")
             return httpServer
           })
 
-        sockjsServer.on("connection", this._handleNewConnection.bind(this))
+        wsServer.on("connection", this._handleNewConnection.bind(this))
       }
 
     SocketServer.prototype._handleNewConnection =

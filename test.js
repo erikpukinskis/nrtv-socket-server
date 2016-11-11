@@ -3,30 +3,32 @@ var library = test.library
 
 test.using(
   "receives data through a websocket",
-  ["./socket-server", "ws", library.reset("nrtv-server"), "querystring"],
-  function(expect, done, SocketServer, WebSocket, nrtvServer, querystring) {
+  ["./socket-server", "ws", "nrtv-server", "querystring"],
+  function(expect, done, SocketServer, WebSocket, Server, querystring) {
 
-    var socketServer = SocketServer.onServer(nrtvServer)
+    var server = new Server()
+
+    var socketServer = SocketServer.onServer(server)
 
     socketServer.use(
       function(connection, next) {
-        var params = querystring.parse(connection.url.split("?")[1])
+        var params = querystring.parse(connection.upgradeReq.url.split("?")[1])
 
         var wantIt = params.__nrtvSingleUseSocketIdentifier == "102dk102ke2"
 
         if (wantIt) {
-          connection.on("data", expectSingle)
+          connection.on("message", expectSingle)
         } else {
           next()
         }
       }
     )
 
-    nrtvServer.start(8000)
+    server.start(8000)
 
     function sendMessage(message) {
       var ws = new WebSocket('ws://localhost:8000/echo/websocket?__nrtvSingleUseSocketIdentifier=102dk102ke2')
-       
+
       ws.on("open", function() {
         ws.send(message)
       })
@@ -37,7 +39,7 @@ test.using(
     function expectSingle(data) {
       expect(data).to.equal("barf")
       done()
-      nrtvServer.stop()
+      server.stop()
     }
 
   }
